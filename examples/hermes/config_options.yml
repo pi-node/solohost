@@ -1,0 +1,89 @@
+# Hermes Agent install form. Writes .env; docker-compose.yml turns these into the
+# agent's config.yaml at startup. Pick a local model (runs on your node, no key) or a
+# cloud provider (with an API key).
+title: Hermes Agent
+eyebrow: SoloHost App
+description: |
+  A self-improving AI agent that runs on your node. Choose a local model that runs on
+  your node via Docker Model Runner with no API key, or connect a cloud provider (such
+  as Anthropic or OpenAI). With a cloud provider your conversations are processed by
+  that provider, as with any cloud AI service; with a local model, they stay on your node.
+
+  Set a Web UI password below — that's your login to the Hermes interface.
+output_file: .env
+after_save: >
+  Saved. Install / redeploy the package to apply. If you picked a local model, the first
+  start downloads it before Hermes can reply. Then open the Web UI and sign in with the
+  password you set above.
+
+# Written to .env without being shown; resolved by SoloHost at install.
+fixed_values:
+  - name: UID
+    detect: uid
+  - name: GID
+    detect: gid
+
+fields:
+  - name: HERMES_WEBUI_PASSWORD
+    label: Web UI password
+    type: password
+    preserve_if_blank: true
+    required: true
+    help: Your login to the Hermes Web UI after install.
+    env_comment: Password gating the Hermes Web UI.
+
+  - name: HERMES_MODEL_PROVIDER
+    label: Model provider
+    type: select
+    default: dmr
+    help: >
+      "Local model" runs on your node via Docker Model Runner (no key, but needs a
+      capable machine). Or pick a cloud provider and enter its API key below.
+    env_comment: Selects how Hermes gets its model; startup writes the matching config.
+    options:
+      - value: dmr
+        label: Local model (on your node, no key)
+      - value: anthropic
+        label: Anthropic (Claude)
+      - value: openai
+        label: OpenAI
+      - value: custom
+        label: Custom OpenAI-compatible endpoint
+
+  # Which model Docker Model Runner serves for the local (dmr) option. Hidden; declared
+  # so the ${HERMES_DMR_MODEL} used in docker-compose.yml counts as declared.
+  - name: HERMES_DMR_MODEL
+    type: hidden
+    default: "ai/smollm2"
+    env_comment: Docker Model Runner model served for the local option.
+
+  - name: HERMES_API_KEY
+    label: API key
+    type: password
+    preserve_if_blank: true
+    required: false
+    help: Your provider API key (Anthropic / OpenAI / custom endpoint).
+    env_comment: API key for the chosen cloud/custom provider.
+    visible_if:
+      field: HERMES_MODEL_PROVIDER
+      in: [anthropic, openai, custom]
+
+  - name: HERMES_MODEL
+    label: Model (optional)
+    type: text
+    required: false
+    help: Model name to use (e.g. a Claude or GPT model id). Leave blank for the default.
+    env_comment: Optional model override for the chosen provider.
+    visible_if:
+      field: HERMES_MODEL_PROVIDER
+      in: [anthropic, openai, custom]
+
+  - name: HERMES_BASE_URL
+    label: Endpoint base URL
+    type: text
+    required: false
+    help: For the custom provider, the OpenAI-compatible base URL (ending in /v1).
+    env_comment: Base URL for the custom OpenAI-compatible provider.
+    visible_if:
+      field: HERMES_MODEL_PROVIDER
+      in: [custom]

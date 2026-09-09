@@ -1,0 +1,101 @@
+# OpenClaw install form. Writes only .env; docker-compose.yml turns these into the
+# container's config (provider key + gateway token + init model) at start.
+title: OpenClaw Gateway
+eyebrow: SoloHost App
+description: |
+  An AI assistant that runs on your node. To use it, connect an active API key from a
+  supported provider (such as Anthropic or OpenAI). Your conversations are processed by
+  that provider, as with any cloud AI service.
+
+  Pick your provider and add its API key (or choose "Other" to use another supported
+  provider, like Mistral, Cohere, or Together). The access token you set is your login,
+  and you can switch models anytime in the app.
+output_file: .env
+after_save: >
+  Saved. Install / redeploy the package to apply. When OpenClaw opens, sign in with the
+  Control UI access token you set above.
+
+fields:
+  - name: OPENCLAW_GATEWAY_TOKEN
+    label: Control UI access token
+    type: password
+    preserve_if_blank: true
+    required: true
+    help: >
+      This is your login. Choose any value and save it — after install you'll paste
+      this exact token into the OpenClaw Control UI (Settings → token) to sign in.
+    env_comment: Shared secret that gates access to the OpenClaw Control UI.
+
+  - name: MODEL_PROVIDER
+    label: Model provider
+    type: select
+    default: anthropic
+    help: Choose your LLM provider, then enter that provider's API key below.
+    env_comment: The provider OpenClaw uses; startup maps it to a supported model.
+    options:
+      - value: anthropic
+        label: Anthropic (Claude)
+      - value: openai
+        label: OpenAI
+      - value: other
+        label: Other (advanced)
+
+  # --- Anthropic preset ---
+  - name: ANTHROPIC_API_KEY
+    label: Anthropic API key
+    type: password
+    preserve_if_blank: true
+    required: false
+    help: From console.anthropic.com. Must be valid and funded.
+    env_comment: API key used when the provider is Anthropic.
+    visible_if:
+      field: MODEL_PROVIDER
+      in: [anthropic]
+
+  # --- OpenAI preset ---
+  - name: OPENAI_API_KEY
+    label: OpenAI API key
+    type: password
+    preserve_if_blank: true
+    required: false
+    help: From platform.openai.com. Must be valid and funded.
+    env_comment: API key used when the provider is OpenAI.
+    visible_if:
+      field: MODEL_PROVIDER
+      in: [openai]
+
+  # --- Other (advanced): any provider OpenClaw supports ---
+  - name: OTHER_PROVIDER_ENV
+    label: Provider key variable name
+    type: text
+    required: false
+    help: >
+      The environment variable your provider expects, e.g. MISTRAL_API_KEY,
+      COHERE_API_KEY, TOGETHER_API_KEY. Check your provider's OpenClaw docs.
+    env_comment: Name of the env var the chosen (Other) provider reads for its key.
+    visible_if:
+      field: MODEL_PROVIDER
+      in: [other]
+
+  - name: OTHER_API_KEY
+    label: Provider API key
+    type: password
+    preserve_if_blank: true
+    required: false
+    help: The API key for the provider named above.
+    env_comment: The key value written into OpenClaw's config for the Other provider.
+    visible_if:
+      field: MODEL_PROVIDER
+      in: [other]
+
+  - name: OTHER_MODEL
+    label: Model to start on (optional)
+    type: text
+    required: false
+    help: >
+      e.g. mistral/mistral-large-latest. Leave blank to choose from the full list in the
+      app's model picker. Run "/model list <provider>" in the app to see valid refs.
+    env_comment: Optional model ref to initialize on for the Other provider.
+    visible_if:
+      field: MODEL_PROVIDER
+      in: [other]

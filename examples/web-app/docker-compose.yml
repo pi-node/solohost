@@ -1,0 +1,19 @@
+# docker-compose.yml — defines the containers Pi Desktop runs for your app.
+# Reference published remote images with "image:". Local "build:" is NOT supported.
+# This example uses Grafana, a real, public image on Docker Hub.
+services:
+  web:
+    image: grafana/grafana:11.1.0
+    restart: unless-stopped
+    labels:
+      pi.ui.primary: "true"                    # tells Pi Desktop this is the UI service to surface + embed
+    ports:
+      - "127.0.0.1:13000:3000"                 # loopback 127.0.0.1:HOST:CONTAINER (distinctive host port -> Grafana's 3000)
+    environment:                               # each ${VAR} is a field in config_options.yml
+      GF_SECURITY_ADMIN_USER: '${GF_SECURITY_ADMIN_USER}'
+      GF_SECURITY_ADMIN_PASSWORD: '${GF_SECURITY_ADMIN_PASSWORD}'
+    volumes:
+      - grafana_data:/var/lib/grafana          # named volume: dashboards, users, and settings survive restarts
+
+volumes:
+  grafana_data:

@@ -1,0 +1,45 @@
+# OpenClaw AI — self-hosted personal assistant.
+# Public image: ghcr.io/openclaw/openclaw. Control UI serves on container port 18789.
+services:
+  gateway:
+    image: ghcr.io/openclaw/openclaw:2026.6.34
+    restart: unless-stopped
+    init: true
+    labels:
+      pi.ui.primary: "true"                      # the UI service Pi Desktop surfaces + embeds
+    # On start, merge two settings into OpenClaw's config: (1) origin fallback so
+    # OpenClaw accepts SoloHost's proxied origin (fixes "Browser origin not allowed");
+    # (2) the init model, mapped from the MODEL_PROVIDER you picked, using real,
+    # supported model refs from OpenClaw's catalog (cheapest per provider). This makes
+    # it boot straight into your provider instead of OpenClaw's OpenAI default.
+    # Model refs are confirmed valid via `/model list` in this build.
+    command:
+      - sh
+      - -lc
+      - |
+        node -e 'const fs=require("fs"),d="/home/node/.openclaw",p=d+"/openclaw.json";fs.mkdirSync(d,{recursive:true});let c={};try{c=JSON.parse(fs.readFileSync(p,"utf8"))}catch(e){}c.gateway=c.gateway||{};c.gateway.controlUi=c.gateway.controlUi||{};c.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true;const pr=(process.env.MODEL_PROVIDER||"").toLowerCase(),M={anthropic:"anthropic/claude-haiku-4-5"},sm=m=>{c.agents=c.agents||{};c.agents.defaults=c.agents.defaults||{};c.agents.defaults.model=c.agents.defaults.model||{};c.agents.defaults.model.primary=m};if(pr==="other"){const n=process.env.OTHER_PROVIDER_ENV,k=process.env.OTHER_API_KEY,md=process.env.OTHER_MODEL;if(n){c.env=c.env||{};c.env.vars=c.env.vars||{};c.env.vars[n]=k||""}if(md)sm(md)}else if(M[pr]){sm(M[pr])}fs.writeFileSync(p,JSON.stringify(c,null,2))'
+        exec node dist/index.js gateway --bind lan --port 18990 --allow-unconfigured
+    ports:
+      - "127.0.0.1:18990:18990"                  # loopback HOST:CONTAINER form (matches the Hermes convention);
+                                                 # moved off 18789 to dodge the stuck-port collision
+    environment:
+      # Pin config/workspace paths inside the container.
+      HOME: /home/node
+      OPENCLAW_HOME: /home/node
+      OPENCLAW_STATE_DIR: /home/node/.openclaw
+      OPENCLAW_CONFIG_DIR: /home/node/.openclaw
+      OPENCLAW_CONFIG_PATH: /home/node/.openclaw/openclaw.json
+      OPENCLAW_WORKSPACE_DIR: /home/node/.openclaw/workspace
+      # These ${VAR}s are declared in config_options.yml:
+      OPENCLAW_GATEWAY_TOKEN: '${OPENCLAW_GATEWAY_TOKEN}'
+      MODEL_PROVIDER: '${MODEL_PROVIDER}'         # which provider you picked; startup maps it to a supported model
+      ANTHROPIC_API_KEY: '${ANTHROPIC_API_KEY}'
+      OPENAI_API_KEY: '${OPENAI_API_KEY}'
+      OTHER_PROVIDER_ENV: '${OTHER_PROVIDER_ENV}' # "Other" provider: the env-var name its key uses
+      OTHER_API_KEY: '${OTHER_API_KEY}'           # "Other" provider: the key value
+      OTHER_MODEL: '${OTHER_MODEL}'               # "Other" provider: optional model ref to start on
+    volumes:
+      - openclaw_home:/home/node                 # named volume persists config + workspace
+
+volumes:
+  openclaw_home:

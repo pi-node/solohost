@@ -1,0 +1,185 @@
+# docker-compose.yml — Hermes Agent (Nous Research): the SoloHost reference package.
+# Two services: the agent gateway + the Web UI (the surfaced app). Local models run on
+# the host via Docker Model Runner (DMR) through Compose's `models:` integration; cloud
+# providers (Anthropic/OpenAI) or a custom OpenAI-compatible endpoint work via the
+# install form. Adapted to the SoloHost contract vs the upstream reference:
+# named volumes (no host bind mounts), no `container_name`, loopback-published ports.
+services:
+  hermes-agent:
+    image: nousresearch/hermes-agent:v2026.8.31
+    # On start, translate the operator's .env answers into Hermes' config.yaml:
+    # provider=dmr writes a custom OpenAI-compatible provider pointed at DMR (no key);
+    # anthropic/openai/custom write that provider + the API key.
+    command:
+      - /bin/bash
+      - -lc
+      - |
+        /opt/hermes/.venv/bin/python - <<'PY'
+        import os
+        from pathlib import Path
+
+        import yaml
+
+        home = Path(os.environ.get("HERMES_HOME", "/home/hermes/.hermes"))
+        config_path = home / "config.yaml"
+        provider = os.environ.get("HERMES_MODEL_PROVIDER", "dmr").strip().lower()
+        dmr_endpoint = os.environ.get(
+            "HERMES_DMR_URL",
+            "http://modelrunner.docker.internal:12434/engines/v1",
+        ).rstrip("/")
+        dmr_model = os.environ.get("HERMES_DMR_MODEL", "ai/smollm2")
+        dmr_api_key = os.environ.get("HERMES_DMR_API_KEY", "docker-model-runner")
+        model = os.environ.get("HERMES_MODEL") or dmr_model
+        base_url = (os.environ.get("HERMES_BASE_URL") or "").rstrip("/")
+        api_key = os.environ.get("HERMES_API_KEY") or ""
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        except FileNotFoundError:
+            config = {}
+
+        model_config = config.get("model")
+        if not isinstance(model_config, dict):
+            model_config = {}
+
+        if provider == "dmr":
+            model_config.update({
+                "provider": "custom",
+                "default": model or dmr_model,
+                "base_url": dmr_endpoint,
+                "context_length": 65536,
+                "api_key": api_key or dmr_api_key,
+            })
+            existing_custom_providers = config.get("custom_providers", [])
+            if not isinstance(existing_custom_providers, list):
+                existing_custom_providers = []
+            custom_providers = [
+                custom_provider for custom_provider in existing_custom_providers
+                if not (
+                    isinstance(custom_provider, dict)
+                    and custom_provider.get("name") == "docker-model-runner"
+                )
+            ]
+            custom_providers.append({
+                "name": "docker-model-runner",
+                "base_url": model_config["base_url"],
+                "api_key": model_config["api_key"],
+                "models": {
+                    model_config["default"]: {
+                        "context_length": 65536,
+                    },
+                },
+            })
+            config["custom_providers"] = custom_providers
+        elif provider == "anthropic":
+            model_config = {
+                "provider": "anthropic",
+                "default": model,
+            }
+            if api_key:
+                model_config["api_key"] = api_key
+        elif provider == "openai":
+            model_config = {
+                "provider": "openai",
+                "default": model,
+                "base_url": base_url or "https://api.openai.com/v1",
+            }
+            if api_key:
+                model_config["api_key"] = api_key
+        else:
+            model_config = {
+                "provider": "custom",
+                "default": model,
+                "base_url": base_url,
+            }
+            if api_key:
+                model_config["api_key"] = api_key
+
+        config["model"] = model_config
+        config["platform_toolsets"] = {
+            "cli": ["hermes-cli"],
+            "webui": ["hermes-cli"],
+            "gateway": ["hermes-cli"],
+        }
+        config_path.write_text(
+            yaml.safe_dump(config, sort_keys=False, allow_unicode=True),
+            encoding="utf-8",
+        )
+        print(f"Configured Hermes from .env: provider={provider}, model={model}")
+        PY
+        exec /opt/hermes/.venv/bin/hermes gateway run
+    # DMR injects the reachable endpoint + resolved model name into these vars:
+    models:
+      hermes-llm:
+        endpoint_var: HERMES_DMR_URL
+        model_var: HERMES_DMR_MODEL
+    ports:
+      - "127.0.0.1:18642:8642"                 # loopback HOST:CONTAINER (gateway API)
+    volumes:
+      - hermes_home:/home/hermes/.hermes       # named volume (was a host bind upstream)
+      - hermes-agent-src:/opt/hermes           # shared with the Web UI
+    environment:
+      - HERMES_HOME=/home/hermes/.hermes
+      - HERMES_UID=${UID:-501}
+      - HERMES_GID=${GID:-20}
+      - HERMES_MODEL_PROVIDER=${HERMES_MODEL_PROVIDER:-dmr}
+      - HERMES_MODEL=${HERMES_MODEL:-}
+      - HERMES_BASE_URL=${HERMES_BASE_URL:-}
+      - HERMES_API_KEY=${HERMES_API_KEY:-}
+      - HERMES_DMR_API_KEY=docker-model-runner  # DMR ignores the token; presence = "configured"
+    restart: unless-stopped
+    networks:
+      - hermes-net
+
+  hermes-webui:
+    image: ghcr.io/nesquena/hermes-webui:0.52.153
+    entrypoint:
+      - /bin/bash
+      - -lc
+      - |
+        for _ in {1..120}; do
+          [ -d /home/hermeswebui/.hermes/hermes-agent/.playwright ] && break
+          sleep 1
+        done
+        chmod -R o+rX /home/hermeswebui/.hermes/hermes-agent 2>/dev/null || true
+        exec /hermeswebui_init.bash
+    depends_on:
+      - hermes-agent
+    labels:
+      pi.ui.primary: "true"                     # the Web UI is the service Pi Desktop surfaces + embeds
+    models:
+      hermes-llm:
+        endpoint_var: HERMES_DMR_URL
+        model_var: HERMES_DMR_MODEL
+    ports:
+      - "127.0.0.1:18787:8787"                 # loopback HOST:CONTAINER (Web UI)
+    volumes:
+      - hermes_home:/home/hermeswebui/.hermes
+      - hermes-agent-src:/home/hermeswebui/.hermes/hermes-agent
+      - hermes_workspace:/workspace
+    environment:
+      - HERMES_WEBUI_HOST=0.0.0.0
+      - HERMES_WEBUI_PORT=8787
+      - HERMES_WEBUI_STATE_DIR=/home/hermeswebui/.hermes/webui
+      - WANTED_UID=${UID:-501}
+      - WANTED_GID=${GID:-20}
+      - HERMES_WEBUI_PASSWORD=${HERMES_WEBUI_PASSWORD:-}
+    restart: unless-stopped
+    networks:
+      - hermes-net
+
+networks:
+  hermes-net:
+    driver: bridge
+
+volumes:
+  hermes_home:
+  hermes-agent-src:
+  hermes_workspace:
+
+# Docker Model Runner serves this model on the host for the local (dmr) option.
+# HERMES_DMR_MODEL is set from the install form (defaults to the tiny ai/smollm2).
+models:
+  hermes-llm:
+    model: ${HERMES_DMR_MODEL:-ai/smollm2}
+    context_size: 65536

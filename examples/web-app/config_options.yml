@@ -1,0 +1,19 @@
+# config_options.yml — describes the install form Pi Desktop renders.
+# Each field's "name" is the .env key written on install — name it after the
+# environment variable the image actually reads.
+title: Grafana Configurator
+description: Set up the admin account for your Grafana instance.
+output_file: .env
+fields:
+  - name: GF_SECURITY_ADMIN_USER
+    label: Admin username
+    type: text              # text | password | number | select | hidden
+    required: true
+    default: "admin"
+    help: Username for the Grafana admin account.
+  - name: GF_SECURITY_ADMIN_PASSWORD
+    label: Admin password
+    type: password
+    preserve_if_blank: true
+    required: true
+    help: Password for the Grafana admin account.

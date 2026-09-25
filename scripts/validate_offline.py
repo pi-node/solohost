@@ -23,8 +23,8 @@ Checks (enforced-today, per the contract):
                     NOT count as declared — declare them as a hidden field too)
 
 Usage:
-  python3 scripts/validate.py <package-dir> [<package-dir> ...]
-  python3 scripts/validate.py            # defaults to every dir under examples/
+  python3 scripts/validate_offline.py <package-dir> [<package-dir> ...]
+  python3 scripts/validate_offline.py            # defaults to every dir under skills/solohost-package/examples/
 
 Requires PyYAML:  pip install pyyaml
 """
@@ -254,11 +254,11 @@ def main():
     if args:
         pkgs = args
     else:
-        ex = os.path.join(root, "examples")
+        ex = os.path.join(root, "skills", "solohost-package", "examples")
         pkgs = sorted(os.path.join(ex, d) for d in os.listdir(ex)
                       if os.path.isdir(os.path.join(ex, d)))
 
-    print("SoloHost pre-flight check (non-authoritative — see SOLOHOST.md)")
+    print("SoloHost pre-flight check (non-authoritative — see skills/solohost-package/references/contract.md)")
     total = 0
     for pkg in pkgs:
         total += check_package(pkg).fails

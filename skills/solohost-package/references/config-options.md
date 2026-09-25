@@ -1,6 +1,6 @@
 # `config_options.yml` field reference
 
-Quick lookup for the install-form schema. Authoritative rules are in `SOLOHOST.md` §2;
+Quick lookup for the install-form schema. Authoritative rules are in `contract.md` §2;
 this matches the known-good example shape.
 
 ## Top level

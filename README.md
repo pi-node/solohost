@@ -105,7 +105,6 @@ files, not at one file.
 | `skills/solohost-package/references/config-options.md` | Install-form field reference. |
 | `skills/solohost-package/examples/` | Finished packages to copy. Start with `web-app` (Grafana, simplest); `openclaw` (provider keys, config write, embedding) and `hermes` (multi-service, local model) are the advanced ones. |
 | `skills/solohost-package/scripts/validate_api.py` | The authoritative check against SoloHost's validator. |
-| `scripts/validate_offline.py` | Offline approximation for contributors. **Not authoritative** — never ship on its result alone. |
 
 ---
 

@@ -35,6 +35,3 @@ manifests with `claude plugin validate .`.
   Compatibility Spec.
 - `skills/solohost-package/scripts/validate_api.py` calls the authoritative SoloHost
   validator and is the required gate, and the only validation the skill relies on.
-- `scripts/validate_offline.py` is an offline approximation for working on the contract without a
-  network. It is **not authoritative** and duplicates rules that live server-side, so a
-  `PASS` there means nothing on its own. It is deliberately not shipped inside the skill.

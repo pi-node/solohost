@@ -1,0 +1,79 @@
+services:
+  # =====================================================================
+  # 1. DATABASE LAYER (Prisma Replica Set Enabled)
+  # =====================================================================
+  db:
+    image: mongo:6.0
+    container_name: bzr-db
+    restart: always
+    ports:
+      - "127.0.0.1:27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: bazaar_republic
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - bzr-network
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "try { rs.status().ok } catch (e) { try { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'db:27017'}]}); } catch (err) { quit(1); } }"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =====================================================================
+  # 2. NEXT.JS APPLICATION CONTAINER (SoloHost Production Image)
+  # =====================================================================
+  app:
+    image: ghcr.io/pinoyq8/bazaar-republic-alpha:latest
+    container_name: bzr-nextjs-app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: mongodb://db:27017/bazaar_republic?replicaSet=rs0&readConcernLevel=majority&w=majority
+      MONGODB_URI: mongodb://db:27017/bazaar_republic?replicaSet=rs0&readConcernLevel=majority&w=majority
+      SOROBAN_RPC_URL: https://soroban-testnet.stellar.org
+      BAZAAR_VAULT_CONTRACT_ID: CDI5EAXHES3KPZBLAICUWUSDCLFGTN3MDURTFMQCXTQWFSYRK357YPD6
+      PI_API_KEY: ${PI_API_KEY}
+      NEXT_PUBLIC_PI_SANDBOX: "true"
+    networks:
+      - bzr-network
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health", "||", "exit", "1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # =====================================================================
+  # 3. ON-CHAIN RELAYER DAEMON (SoloHost Production Image)
+  # =====================================================================
+  relayer:
+    profiles: ["relayer"]
+    image: ghcr.io/pinoyq8/bazaar-bridge-relayer:latest
+    container_name: bzr-bridge-relayer
+    restart: always
+    environment:
+      DATABASE_URL: mongodb://db:27017/bazaar_republic?replicaSet=rs0&readConcernLevel=majority&w=majority
+      MONGODB_URI: mongodb://db:27017/bazaar_republic?replicaSet=rs0&readConcernLevel=majority&w=majority
+      SOROBAN_RPC_URL: https://soroban-testnet.stellar.org
+      BAZAAR_VAULT_CONTRACT_ID: CDI5EAXHES3KPZBLAICUWUSDCLFGTN3MDURTFMQCXTQWFSYRK357YPD6
+      PI_API_KEY: ${PI_API_KEY}
+    networks:
+      - bzr-network
+    depends_on:
+      db:
+        condition: service_healthy
+    stop_grace_period: 1m30s
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  bzr-network:
+    driver: bridge

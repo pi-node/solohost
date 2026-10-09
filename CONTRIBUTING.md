@@ -24,10 +24,13 @@ python3 skills/solohost-package/scripts/validate_api.py skills/solohost-package/
 With no argument it checks every example at once.
 
 Contract edits reach installed skills immediately — the skill fetches the contract from
-`main` at runtime — so they do **not** need a version bump. Bump the version only when
-`SKILL.md`, the examples, or the scripts change — in both `.claude-plugin/plugin.json` and
-the plugin entry in `.claude-plugin/marketplace.json`, kept equal — and validate the
-manifests with `claude plugin validate .`.
+`main` at runtime — so they never need a version bump.
+
+Bump the version once per pull request that changes `SKILL.md`, the examples, or the
+scripts, as part of that PR rather than in each commit. Set the same version in
+`.claude-plugin/plugin.json` and in both places in `.claude-plugin/marketplace.json`
+(`metadata.version` and the plugin entry), then validate the manifests with
+`claude plugin validate .`.
 
 ## Ground rules
 

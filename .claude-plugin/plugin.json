@@ -1,7 +1,7 @@
 {
   "name": "solohost",
   "description": "Build a valid SoloHost package (docker-compose.yml + config_options.yml) for an app that already has a public Docker image.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "pi-node",
     "url": "https://github.com/pi-node"

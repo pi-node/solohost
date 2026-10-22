@@ -37,6 +37,7 @@ VALIDATE_URL = HOST + "/api/apps/validate"
 # never blocks a ship. These are transport/5xx retries, not validation retries.
 RETRIES = 4
 BACKOFF_SECONDS = 8
+RATE_LIMIT_WAIT_SECONDS = 60
 
 
 def _post(url, payload):
@@ -55,6 +56,11 @@ def _post(url, payload):
             if e.code >= 500 and attempt < RETRIES:
                 last_err = "HTTP %s" % e.code
                 time.sleep(BACKOFF_SECONDS)
+                continue
+            if e.code == 429 and attempt < RETRIES:
+                last_err = "rate limited"
+                print("  rate limited by the validator, waiting a minute...", file=sys.stderr)
+                time.sleep(RATE_LIMIT_WAIT_SECONDS)
                 continue
             # A non-5xx HTTP error may still carry a JSON validation body.
             try:

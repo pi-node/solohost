@@ -127,8 +127,9 @@ Then ask the user to choose:
   Every capability that you confirmed can be packaged must appear by name as a selectable
   option, even if it shared a row in the table. A recommendation or an "Exclude" label
   never substitutes for asking.
-- **If the app has more than one known integration, use structured questions**, such as
-  `AskUserQuestion` in Claude Code. Use one multi-select per category — model providers,
+- **If the app has more than one known integration, use structured questions**: your
+  assistant's multiple-choice question tool if it has one (`AskUserQuestion` in Claude
+  Code, the equivalent in Cursor or others). Use one multi-select per category — model providers,
   messaging channels, search integrations, and so on — and split a category across
   questions if the tool limits option count. If an app supports several packageable
   messaging channels, for example, ask "Which messaging channels should the install form
@@ -198,23 +199,46 @@ is authoritative. Run it yourself, automatically; the user should not have to as
 - `UNREACHABLE` — you have no network. **Do not hand off.** Get on a network and re-run,
   or tell the user to submit to SoloHost, which runs the same check.
 
-**Validation is necessary but not sufficient.** It confirms the files are well-formed; it
-cannot confirm the package *works*. Two things pass the validator and still leave a broken
-app, so check them by hand every time:
+**Validation is necessary but not sufficient.** `Result: OK` means the files are
+well-formed, not that the app shows up in Pi Desktop. Several mistakes pass the validator
+and still leave a blank tab, so don't stop at the first OK.
 
-1. **The app renders at all.** `pi.ui.primary: "true"` and the published loopback port are
-   not validator-checked, but Pi Desktop needs both to find and embed the app. Without them
-   the tab is blank.
-2. **Every option takes effect.** The form only writes values to `.env`. A field whose
-   name the image never reads is a dead control — the operator sets it, nothing happens,
-   and they assume the app is broken. For each field, confirm there is a real path to app
-   behavior: either the name is an env var the image actually reads, or the compose
-   translates it into the app's own config at startup. For a `select`, confirm every
-   option is one the build can honor. The contract's "Every option must actually take
-   effect" has the detail and a worked failure.
+### Install checklist (after `Result: OK`, every time)
 
-To check what a given set of answers writes, `POST /api/apps/preview-env` with the
-`configOptionsYaml` and a `values` object returns the resulting `.env`.
+Check each item in the files you wrote, fix any miss, and re-run the validator after a fix.
+
+| Check | Why it matters | Fix |
+| --- | --- | --- |
+| Exactly one service has `pi.ui.primary: "true"` | Pi Desktop embeds only that service; without it the tab is blank. | Add the label to the UI service. |
+| That service publishes exactly one port as `"127.0.0.1:HOST:CONTAINER"` | `"HOST:CONTAINER"` or `"0.0.0.0:..."` exposes the app to the whole network; `expose:` or `"CONTAINER"` alone gives Pi Desktop nothing to open. | Use the loopback form with a distinctive host port. |
+| `CONTAINER` is the port the image actually serves on | A wrong container port publishes fine and serves nothing. | Confirm from the image docs or the running container. |
+| `HOST` is not a browser-blocked port | Chromium refuses a fixed list of ports (e.g. 6000, 6665–6669, 6697, 10080, and many below 1024), so the embed fails with `ERR_UNSAFE_PORT`. | Use a distinctive port between 11000 and 60000, like `18080`. |
+| No image uses `:latest` or omits the tag | A moving tag changes the app under every operator without a new package. | Pin the version tag the image publishes. |
+| No `container_name:` | It collides on reinstall and on a second install. | Remove it. |
+| The UI service has a `healthcheck:` (recommended) | Without one, Pi Desktop can open the tab before the app is ready. Not required yet. | Add a cheap check against the UI port if the image has `curl` or `wget`. |
+| Every field takes effect | The form only writes values to `.env`; a name the image never reads is a dead control. | Make sure each field is an env var the image reads, or is translated into the app's config at startup. For a `select`, every option must be one the build can honor (contract: "Every option must actually take effect"). |
+
+### Local run (when Docker is available)
+
+If `docker compose version` works, start the package once before handing off. This is
+the only check that proves the app actually serves its UI.
+
+1. Write a throwaway `.env`: `POST <validator host>/api/apps/preview-env` (same host as
+   `validate_api.py`) with `{"configOptionsYaml": ..., "values": {...}}` returns the exact
+   `.env` text the install form would write.
+   Fill required secrets with obvious test values, never the user's real keys.
+2. `docker compose -p solohost-check -f docker-compose.yml --env-file .env config` must
+   succeed.
+3. Check the host port is free first (`lsof -i :HOST` or `netstat -an`). If it isn't, the
+   app may already be installed in Pi Desktop; tell the user and don't stop their copy.
+4. `docker compose -p solohost-check -f docker-compose.yml --env-file .env up -d`
+5. Wait for the healthcheck (or up to ~2 minutes), then `curl -sI http://127.0.0.1:HOST/`
+   must answer. If not, read `docker compose -p solohost-check logs` and fix the package.
+6. Always clean up, even on failure: `docker compose -p solohost-check down -v`, and
+   delete the throwaway `.env`.
+
+If Docker isn't installed or running, skip this and say so in the hand-off, so the user
+knows the package was checked but never started.
 
 ---
 
@@ -224,6 +248,8 @@ Tell the user where the two files are and that publishing is copy-and-paste: the
 SoloHost, start a new app, paste the contents of `docker-compose.yml` into its field and
 `config_options.yml` into its field, and submit. There is no folder or zip to upload —
 SoloHost only needs the text of the two files.
+
+Say whether the local run passed or was skipped because Docker wasn't available.
 
 Then recap the capabilities: which ones the package includes, and which were left out and
 why. That covers both the ones the user chose to skip and any you couldn't make work after

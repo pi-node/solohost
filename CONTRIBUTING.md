@@ -1,28 +1,40 @@
 # Contributing
 
-This repo is the SoloHost package **starter** and **contract**: the shared answer
-key for what a valid package looks like. It contains no production validation logic.
+This repo is the SoloHost package **contract** and the **skill** that builds packages
+against it. It contains no production validation logic — the authoritative validator is
+hosted by SoloHost.
 
 ## Making a package
 
-You usually don't contribute here. You copy the repo and use it to build your own
-package (see `README.md`). Open an issue with the "New app request" template if you
-want an app packaged.
+You usually don't contribute here. You install the skill and use it (see `README.md`).
+Open an issue if you want an app packaged.
 
 ## Changing the contract or examples
 
-- `SOLOHOST.md` is the **v0 contract: only rules enforced today**. Do not add a
-  rule unless the SoloHost backend or Pi Desktop actually checks it; put anything
-  proposed under the "Not in v0" section instead.
-- Any example you add or edit must pass the authoritative validator with no `FAIL`s:
+The contract is `skills/solohost-package/references/contract.md`. It is the **v0 contract:
+only rules enforced today**. Do not add a rule unless the SoloHost backend or Pi Desktop
+actually checks it; put anything proposed under its "Not in v0" section instead.
 
-  ```bash
-  python3 scripts/validate_api.py examples/<dir>
-  ```
+Any example you add or edit must pass the authoritative validator with no `FAIL`s:
+
+```bash
+python3 skills/solohost-package/scripts/validate_api.py skills/solohost-package/examples/<dir>
+```
+
+With no argument it checks every example at once.
+
+Contract edits reach installed skills immediately — the skill fetches the contract from
+`main` at runtime — so they never need a version bump.
+
+Bump the version once per pull request that changes `SKILL.md`, the examples, or the
+scripts, as part of that PR rather than in each commit. Set the same version in
+`.claude-plugin/plugin.json` and in both places in `.claude-plugin/marketplace.json`
+(`metadata.version` and the plugin entry), then validate the manifests with
+`claude plugin validate .`.
 
 ## Ground rules
 
-- The contract (`SOLOHOST.md`) is the source of truth, pending final reconciliation
-  with the Container Compatibility Spec.
-- `scripts/validate_api.py` calls the authoritative SoloHost validator and is the
-  required gate, and the only validation this repo relies on.
+- The contract is the source of truth, pending final reconciliation with the Container
+  Compatibility Spec.
+- `skills/solohost-package/scripts/validate_api.py` calls the authoritative SoloHost
+  validator and is the required gate, and the only validation the skill relies on.

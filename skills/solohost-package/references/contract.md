@@ -1,4 +1,4 @@
-# SOLOHOST.md — The SoloHost Package Contract (v0)
+# The SoloHost Package Contract (v0)
 
 This is the contract for a **SoloHost package**: the two files a publisher pastes into
 SoloHost so Pi Desktop can install and run their app.
@@ -364,7 +364,7 @@ required.
 
 **The hosted validation API is authoritative and is the required gate before a package
 ships.** It runs the same validator SoloHost uses at submit, so `ok: true` there is the
-real answer, and it is the only validation this repo relies on.
+real answer, and it is the only validation this skill relies on.
 
 ### Hosted validation API
 

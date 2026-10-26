@@ -1,130 +1,112 @@
-# Solohost App Starter Kit
+# SoloHost Package Skill
 
-Use this repository to build a valid **SoloHost package**: the set of files SoloHost
-needs to install and run your app on someone's computer. Clone and hand this repo off
-to an **AI coding assistant**, follow the flow, and produce:
+Publish your app on SoloHost. Your app already lives in a **public Docker image**; this
+skill writes the two files SoloHost needs to install and run it on someone's computer:
 
-- `docker-compose.yml`: which app to run.
-- `config_options.yml`: the settings the installer will ask people to fill in.
+- `docker-compose.yml` — which image to run.
+- `config_options.yml` — the settings the installer asks people to fill in.
 
-You don't need to be a developer to follow this. At the end, you paste the contents of
-the two files into SoloHost to publish your app.
+You don't need to be a developer, and you never write YAML. You answer a few plain
+questions and paste two blocks of text into SoloHost.
 
-**Important:** these files do **not** contain your app's design, screens, or code.
-Your app already lives inside a **Docker image**; these files just tell SoloHost how to
-run that image. So building a package is never about how your app looks. It's about
-pointing at your image and listing its install settings.
+> These files do **not** contain your app's design, screens, or code — just a pointer to
+> your image and its install settings. Building a package is never about how your app looks.
 
 ---
 
-## Before you start: what you need
+## Install
 
-- [ ] **This repo.** Get it in Step 1 below.
-- [ ] **An AI coding assistant**, such as [Claude Code](https://claude.com/claude-code)
-      or [Cursor](https://cursor.com).
-- [ ] **A public Docker image for your app** that's already published. Have its name
-      ready, e.g. `ghcr.io/owner/app`. (Most well-known apps already have one. An
-      "image" is your app packaged so any computer can run it.)
+Once, one command:
 
----
+```bash
+npx skills add pi-node/solohost
+```
 
-## Step 1. Get your own copy of this repo
+It detects your assistant and installs to the right place — Cursor, Claude Code, Codex,
+Zed, Copilot and 70-odd others. Add `-g` to install globally rather than into the current
+project, and run `npx skills update` later to pick up changes.
 
-You just need this repo's files on your computer. Easiest: click **Code → Download
-ZIP** and unzip it. (Prefer your own GitHub copy? Use **"Use this template" → Create a
-new repository**, or **Fork**, then open that.)
+**Claude Code users** can install it as a plugin instead. Same skill; the plugin adds
+version pinning and lets you hand it to a whole team through a project's
+`.claude/settings.json`:
 
----
+```bash
+claude plugin marketplace add pi-node/solohost
+```
 
-## Step 2. Open it in your AI assistant
+```bash
+claude plugin install solohost@solohost
+```
 
-Point your assistant (Claude Code or Cursor) at the folder. Once it has the repo, it
-has the built-in instructions that tell it the rules for a valid package, so you won't
-have to explain them. It won't start on its own or ask you about your app; you kick
-things off in the next step.
+Already inside Claude Code (or the Claude desktop app's Code tab)? Type the same thing as
+slash commands instead:
 
----
+```
+/plugin marketplace add pi-node/solohost
+/plugin install solohost@solohost
+```
 
-## Step 3. Ask the assistant to build your package
+Then start a new session so the skill loads.
 
-Start with one line giving your image name. From there **the assistant asks you the
-rest in plain language.** It already knows, from this repo, what to ask, and handles
-anything technical on its own.
+## Use
+
+From any folder, tell your assistant what your image is:
 
 > "Build a SoloHost package for my app. Its image is `ghcr.io/owner/notes`."
 
-Then answer its questions, things like what the app should be called, whether people
-should set a password, and which optional features to offer (for example web search, if
-your app supports it) along with any API key those features need. You never have to
-mention ports, YAML, or anything technical.
+It takes over from there — asking what the app is called, whether people set a password,
+which optional features to offer and the API key each one needs. It looks up your image's
+technical details itself, writes both files into a new folder, and checks them against
+SoloHost's own validator before handing them to you. It won't hand off until that passes.
 
-You don't need to track down any technical docs yourself. For a well-known app, the
-assistant looks up its documentation on its own to get details like the port and
-settings right. For a niche or custom image with no public docs, it may ask you a couple
-of quick questions instead.
+## Publish
 
----
-
-## Step 4. Get your files and check them
-
-The assistant creates a new folder with your two files (`docker-compose.yml` and
-`config_options.yml`) and automatically checks them against SoloHost's own validator, the
-same one used when you publish. It won't hand the package over until that check passes, so
-you know up front it will be accepted. You don't have to run anything or ask for this.
-If the check finds problems, just tell the assistant "fix the failures" and it will.
+Copy-and-paste. Open SoloHost, start a new app, paste the contents of `docker-compose.yml`
+into its field and `config_options.yml` into its field, then submit. There's no folder or
+zip to upload — SoloHost only needs the text of the two files.
 
 ---
 
-## Step 5. Publish
+## What you need
 
-Your package is just the text of the two files, so publishing is copy-and-paste:
+- A **public Docker image for your app**, already published, e.g. `ghcr.io/owner/app`.
+  (An "image" is your app packaged so any computer can run it. Most well-known apps
+  already have one.) Creating an image is out of scope here.
+- **An AI assistant** — Claude Code, Cursor 2.4+, or another that supports Agent Skills.
 
-1. Open the folder the assistant made in Step 4 (it will tell you where it is), or ask
-   it to print the contents of both files in the chat.
-2. Copy the full contents of `docker-compose.yml`.
-3. In your browser, open SoloHost, start a new app, and paste that into the
-   `docker-compose.yml` field.
-4. Do the same with `config_options.yml`, pasting it into its field.
-5. Submit. SoloHost runs the real, final validation at that point and, if it passes,
-   publishes your app.
+## Assistant that doesn't support skills?
 
-You don't upload the folder or a zip. SoloHost only needs the text of the two files.
+Clone the repo, open it, and tell the assistant to follow
+[`skills/solohost-package/SKILL.md`](skills/solohost-package/SKILL.md) — the same
+instructions the skill uses. The tradeoff is that you work inside the clone rather than
+your own folder, and you re-clone to pick up changes.
 
----
+## Checking a package by hand
 
-## Optional: check a package yourself
-
-You don't need this if you use the assistant, since it runs the check for you. But if
-you already have the two files and want to check them by hand, put both
-(`docker-compose.yml` and `config_options.yml`) together in a folder, install
-[Python 3](https://www.python.org/downloads/), and from inside the repo folder run:
+You don't need this — the skill runs it for you. But if you already have both files in a
+folder and want to check them yourself, with [Python 3](https://www.python.org/downloads/):
 
 ```bash
-python3 scripts/validate_api.py path/to/your/folder
+python3 skills/solohost-package/scripts/validate_api.py path/to/your/folder
 ```
 
-This is the real check against SoloHost's validator (needs internet; no extra install).
-It ends with **"Result: OK"** or a list of things to fix. Point it at the **folder** (both
-files together), not a single file.
+This is the real check against SoloHost's validator (needs internet, no install). It ends
+with **"Result: OK"** or a list of things to fix. Point it at the **folder** holding both
+files, not at one file.
 
 ---
 
-## What each file in this repo does
+## What's in here
 
-You'll mostly only touch the output from Step 4. Here's what everything is:
-
-| File / folder | What it's for |
+| Path | What it's for |
 | --- | --- |
-| `README.md` | This guide, the tutorial for you. |
-| `SOLOHOST.md` | The rules a valid package must follow. The assistant reads this. |
-| `AGENTS.md` | The **technical guide the assistant follows** (loaded automatically). You don't need to read it. |
-| `CLAUDE.md` | Same, for Claude Code specifically. Loaded automatically. |
-| `examples/` | Finished example packages the assistant copies from. Start with `web-app` (Grafana, the simplest); `openclaw` (OpenClaw AI; cloud) and `hermes` (Hermes Agent; multi-service, local-model-capable) show advanced patterns. |
-| `schema/` | A reference for the install-form field types. |
-| `scripts/validate_api.py` | The real check against SoloHost's validator; the assistant runs this on your files. |
-| `LICENSE`, `CONTRIBUTING.md` | Standard housekeeping; ignore. |
+| `skills/solohost-package/SKILL.md` | The procedure the assistant follows. |
+| `skills/solohost-package/references/contract.md` | **The rules a valid package must follow.** The contract. |
+| `skills/solohost-package/references/config-options.md` | Install-form field reference. |
+| `skills/solohost-package/examples/` | Finished packages to copy. Start with `web-app` (Grafana, simplest); `openclaw` (provider keys, config write, embedding) and `hermes` (multi-service, local model) are the advanced ones. |
+| `skills/solohost-package/scripts/validate_api.py` | The authoritative check against SoloHost's validator. |
 
 ---
 
-*This is v0. `SOLOHOST.md` currently lists only the rules SoloHost enforces today; more
-will be added over time.*
+*This is v0. The contract lists only the rules SoloHost enforces today; more will be added
+over time.*

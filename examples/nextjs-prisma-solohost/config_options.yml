@@ -1,0 +1,22 @@
+title: Bazaar Republic Alpha Configuration
+description: Configure your MESH node database connection and environment parameters for the decentralized E-Network ledger.
+output_file: .env
+
+fixed_values:
+  - name: UID
+    detect: uid
+  - name: NODE_ENV
+    value: production
+
+fields:
+  - name: MONGODB_URI
+    label: MongoDB Connection URI
+    type: text
+    required: true
+    default: mongodb://host.docker.internal:27017/bazaar_republic?directConnection=true
+    help: Enter the MongoDB connection string for your local ledger node.
+  - name: PI_API_KEY
+    label: Pi Network API Key
+    type: text
+    required: true
+    help: Server API key from the Pi Developer Portal for backend payment verification.

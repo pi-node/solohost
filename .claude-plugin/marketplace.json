@@ -6,13 +6,13 @@
   },
   "metadata": {
     "description": "The SoloHost package contract and the skill that builds packages against it.",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "solohost",
       "source": "./",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "description": "Turns an already-published public Docker image into a SoloHost package: asks the creator product questions in plain language, derives the compose and install-form files, and validates them against SoloHost's hosted validator before handing off.",
       "category": "deployment",
       "tags": ["solohost", "pi-desktop", "docker", "docker-compose", "packaging", "self-hosting"]

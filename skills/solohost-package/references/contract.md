@@ -33,7 +33,7 @@ Example:
 ```yaml
 services:
   web:
-    image: ghcr.io/your-org/your-app:latest   # a pushed, public image
+    image: ghcr.io/your-org/your-app:1.4.2    # a pushed, public image, pinned tag
     restart: unless-stopped
     labels:
       pi.ui.primary: "true"                    # REQUIRED for Desktop to surface + embed this service
@@ -79,6 +79,14 @@ Rules (all **enforced today** unless noted):
   (`pid`/`ipc`/`uts`/`cgroup: host`); `devices`; bind mounts / unsafe mounts; host-driver
   networks; top-level `include`; top-level bind-backed volumes; file-backed
   `secrets`/`configs`.
+- **`network_mode`:** only `bridge` or `none`. Usually leave it out; the app gets its own
+  network.
+- **Top-level `volumes:`/`networks:`:** no `external:` and no custom `name:`. Both can
+  attach the app to another app's data or network. Declare them bare (`app_data:`).
+- **`driver_opts` on a volume:** only `type: tmpfs, device: tmpfs` (with `size`/`uid`/
+  `gid`/`mode`). Otherwise use a plain named volume.
+- **`env_file`:** a literal path to a file in the package folder, never `${VAR}` in the
+  path. Prefer `environment:` with `${VAR}` instead.
 - `restart:` is allowed. `container_name:` and `restart:` policy are **not enforced**
   (avoid `container_name:` anyway — it collides on reinstall).
 
@@ -369,7 +377,7 @@ real answer, and it is the only validation this skill relies on.
 ### Hosted validation API
 
 `POST https://solohost-nohcqud24xwnsmna.staging.piappengine.com/api/apps/validate`
-(staging). Public — no login or token. Send the contents of both files as JSON:
+(staging, the same validator SoloHost runs at publish; set `SOLOHOST_API` to use another host). Public — no login or token. Send the contents of both files as JSON:
 
 ```json
 {
@@ -382,24 +390,64 @@ The response is `{"ok": true}` when the package passes, or `{"ok": false, "error
 with the failing rule(s) when it does not (e.g. adding `privileged: true`, or referencing
 a `${VAR}` not declared in `config_options.yml`, returns the matching rule).
 
+### Fixing a validator error
+
+Each error has a `rule`. Fix it this way, then validate again:
+
+| `rule` | Fix |
+| --- | --- |
+| `compose.no-build` | Replace `build:` with a public `image:`. |
+| `compose.has-published-port` | Publish one `127.0.0.1:HOST:CONTAINER` port on the UI service. |
+| `compose.no-privileged`, `compose.no-cap-add`, `compose.no-security-opt`, `compose.no-devices` | Remove the key. |
+| `compose.no-host-network-mode`, `compose.no-host-namespaces`, `compose.no-host-userns`, `compose.no-container-reference` | Remove `network_mode`/`pid`/`ipc`/`uts`/`cgroup`/`userns_mode`/`volumes_from`. |
+| `compose.no-host-network-driver` | Use a plain network (no `driver: host`), or none. |
+| `compose.no-shared-resources` | Drop `external:` and custom `name:` from top-level volumes/networks. |
+| `compose.volume-type-not-allowed`, `compose.no-top-level-bind-volumes`, `compose.bind-inside-install-dir`, `compose.bind-not-install-root`, `compose.no-nested-binds` | Use a named volume (`app_data:/data`) instead of a host path. |
+| `compose.env-file-inside-install-dir`, `compose.env-file-in-bind` | Use `environment:` with `${VAR}`, or a literal `env_file` path in the package folder. |
+| `compose.no-extends`, `compose.no-include` | Inline the services in this one file. |
+| `compose.no-secret-files`, `compose.no-config-files` | Remove file-backed `secrets`/`configs`; pass values via `config_options.yml`. |
+| `compose.key-not-allowed` | Remove the key named in the message. |
+| `compose.interpolation-unbounded`, `compose.too-large` | Simplify: fewer `${VAR}` in one value, a smaller file. |
+| `config.*` | Fix `config_options.yml` per `config-options.md`; the message names the field. |
+| undeclared variable | Declare the `${VAR}` in `config_options.yml`, or remove it. |
+
 `scripts/validate_api.py <package-dir>` wraps this: it reads both files from the folder,
 POSTs them, prints the result, and exits non-zero on failure (needs only the Python
 standard library — no extra packages). With no argument it checks every dir under
 `examples/`.
 
 ```bash
+cd <skill-dir>   # the folder holding SKILL.md
 python3 scripts/validate_api.py examples/web-app
 ```
 
 A freshly-woken API instance can return HTTP 502 for a few seconds on a cold start;
 `validate_api.py` retries transient 5xx/transport errors automatically, so a blip does
-not read as a validation failure. If you call the endpoint by hand and get a 502, wait
-~30s and retry.
+not read as a validation failure. If it stays rate limited (HTTP 429) it exits 4: wait a
+minute and re-run without changing the package. If you call the endpoint by hand and get a
+502, wait ~30s and retry.
 
 **Preview the generated `.env`.** `POST /api/apps/preview-env` with the same
 `configOptionsYaml` plus a `values` object of operator answers returns the `.env` that
 those answers would produce — useful for confirming a field (or a `select` `set:`)
-actually writes the key you expect.
+actually writes the key you expect. `validate_api.py --preview-env <package-dir> KEY=VALUE ...`
+wraps it and writes `<package-dir>/.env`; use placeholder values only.
 
 The authoritative validators also run again at submit/install (backend + Pi Desktop). The
 long-term path remains shared conformance fixtures so all validators stay in sync.
+
+## Install checklist
+
+Run this after the validator says OK. Check each item in the files you wrote and fix any
+miss. Several of these pass the validator and still leave a blank tab in Pi Desktop.
+
+| Check | Why it matters | Fix |
+| --- | --- | --- |
+| Exactly one service has `pi.ui.primary: "true"` | Pi Desktop embeds only that service; without it the tab is blank. | Add the label to the UI service. |
+| That service publishes exactly one port as `"127.0.0.1:HOST:CONTAINER"` | `"HOST:CONTAINER"` or `"0.0.0.0:..."` exposes the app to the whole network; `expose:` or `"CONTAINER"` alone gives Pi Desktop nothing to open. | Use the loopback form with a distinctive host port. |
+| `CONTAINER` is the port the image actually serves on | A wrong container port publishes fine and serves nothing. | Confirm from the image docs or the running container. |
+| `HOST` is not a browser-blocked port | Chromium refuses a fixed list of ports (e.g. 6000, 6665–6669, 6697, 10080, and many below 1024), so the embed fails with `ERR_UNSAFE_PORT`. | Use a distinctive port between 11000 and 60000, like `18080`. |
+| No image uses `:latest` or omits the tag | A moving tag changes the app under every operator without a new package. | Pin the version tag the image publishes. |
+| No `container_name:` | It collides on reinstall and on a second install. | Remove it. |
+| The UI service has a `healthcheck:` (recommended) | Without one, Pi Desktop can open the tab before the app is ready. Not required yet. | Add a cheap check against the UI port if the image has `curl` or `wget`. |
+| Every field takes effect | The form only writes values to `.env`; a name the image never reads is a dead control. | Make sure each field is an env var the image reads, or is translated into the app's config at startup. For a `select`, every option must be one the build can honor (contract: "Every option must actually take effect"). |

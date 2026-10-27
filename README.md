@@ -56,8 +56,9 @@ From any folder, tell your assistant what your image is:
 
 It takes over from there — asking what the app is called, whether people set a password,
 which optional features to offer and the API key each one needs. It looks up your image's
-technical details itself, writes both files into a new folder, and checks them against
-SoloHost's own validator before handing them to you. It won't hand off until that passes.
+technical details itself, writes both files into a new folder, checks them against
+SoloHost's own validator and an install checklist, and, if Docker is running, starts the
+app once to make sure it loads. It won't hand off until the validator passes.
 
 ## Publish
 
@@ -73,6 +74,8 @@ zip to upload — SoloHost only needs the text of the two files.
   (An "image" is your app packaged so any computer can run it. Most well-known apps
   already have one.) Creating an image is out of scope here.
 - **An AI assistant** — Claude Code, Cursor 2.4+, or another that supports Agent Skills.
+- **Docker** (optional) — if it's running, the skill starts your package once to check
+  the app really loads, then removes it.
 
 ## Assistant that doesn't support skills?
 
@@ -105,6 +108,8 @@ files, not at one file.
 | `skills/solohost-package/references/config-options.md` | Install-form field reference. |
 | `skills/solohost-package/examples/` | Finished packages to copy. Start with `web-app` (Grafana, simplest); `openclaw` (provider keys, config write, embedding) and `hermes` (multi-service, local model) are the advanced ones. |
 | `skills/solohost-package/scripts/validate_api.py` | The authoritative check against SoloHost's validator. |
+| `AGENTS.md`, `CLAUDE.md` | Pointers for assistants working inside this repo. |
+| `SoloHost FAQ.md` | General questions about SoloHost and Pi Desktop. |
 
 ---
 

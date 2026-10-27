@@ -196,6 +196,7 @@ This POSTs both files to SoloHost's validator — the same one that runs at subm
 is authoritative. Run it yourself, automatically; the user should not have to ask.
 
 - `FAIL` — fix the reported errors and re-run.
+- `RATE LIMITED` (exit 4) — wait a minute and re-run. Don't change the package.
 - `UNREACHABLE` — you have no network. **Do not hand off.** Get on a network and re-run,
   or tell the user to submit to SoloHost, which runs the same check.
 
@@ -205,37 +206,29 @@ and still leave a blank tab, so don't stop at the first OK.
 
 ### Install checklist (after `Result: OK`, every time)
 
-Check each item in the files you wrote, fix any miss, and re-run the validator after a fix.
-
-| Check | Why it matters | Fix |
-| --- | --- | --- |
-| Exactly one service has `pi.ui.primary: "true"` | Pi Desktop embeds only that service; without it the tab is blank. | Add the label to the UI service. |
-| That service publishes exactly one port as `"127.0.0.1:HOST:CONTAINER"` | `"HOST:CONTAINER"` or `"0.0.0.0:..."` exposes the app to the whole network; `expose:` or `"CONTAINER"` alone gives Pi Desktop nothing to open. | Use the loopback form with a distinctive host port. |
-| `CONTAINER` is the port the image actually serves on | A wrong container port publishes fine and serves nothing. | Confirm from the image docs or the running container. |
-| `HOST` is not a browser-blocked port | Chromium refuses a fixed list of ports (e.g. 6000, 6665–6669, 6697, 10080, and many below 1024), so the embed fails with `ERR_UNSAFE_PORT`. | Use a distinctive port between 11000 and 60000, like `18080`. |
-| No image uses `:latest` or omits the tag | A moving tag changes the app under every operator without a new package. | Pin the version tag the image publishes. |
-| No `container_name:` | It collides on reinstall and on a second install. | Remove it. |
-| The UI service has a `healthcheck:` (recommended) | Without one, Pi Desktop can open the tab before the app is ready. Not required yet. | Add a cheap check against the UI port if the image has `curl` or `wget`. |
-| Every field takes effect | The form only writes values to `.env`; a name the image never reads is a dead control. | Make sure each field is an env var the image reads, or is translated into the app's config at startup. For a `select`, every option must be one the build can honor (contract: "Every option must actually take effect"). |
+Go through the **Install checklist** section of the contract you fetched in Step 0, every
+time, and fix any miss. Re-run the validator after a fix.
 
 ### Local run (when Docker is available)
 
-If `docker compose version` works, start the package once before handing off. This is
-the only check that proves the app actually serves its UI.
+If `docker info` works (Docker is installed and running), start the package once before
+handing off. This is the only check that proves the app actually serves its UI.
 
-1. Write a throwaway `.env`: `POST <validator host>/api/apps/preview-env` (same host as
-   `validate_api.py`) with `{"configOptionsYaml": ..., "values": {...}}` returns the exact
-   `.env` text the install form would write.
-   Fill required secrets with obvious test values, never the user's real keys.
+1. Write a throwaway `.env` exactly as the install form would:
+   `python3 <this-skill-dir>/scripts/validate_api.py --preview-env <package-dir> KEY=dummy ...`
+   Use placeholder values only (e.g. `TELEGRAM_BOT_TOKEN=dummy`), never the user's real
+   keys. Real values go only into the Pi Desktop install form.
 2. `docker compose -p solohost-check -f docker-compose.yml --env-file .env config` must
    succeed.
 3. Check the host port is free first (`lsof -i :HOST` or `netstat -an`). If it isn't, the
    app may already be installed in Pi Desktop; tell the user and don't stop their copy.
 4. `docker compose -p solohost-check -f docker-compose.yml --env-file .env up -d`
-5. Wait for the healthcheck (or up to ~2 minutes), then `curl -sI http://127.0.0.1:HOST/`
-   must answer. If not, read `docker compose -p solohost-check logs` and fix the package.
+5. Wait for the healthcheck (or up to ~2 minutes), then
+   `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:HOST/`. 2xx/3xx is up, and so
+   is 401/403 when the app has its own login. 404, 5xx or no answer is a failure: read
+   `docker compose -p solohost-check logs` and fix the package.
 6. Always clean up, even on failure: `docker compose -p solohost-check down -v`, and
-   delete the throwaway `.env`.
+   delete `<package-dir>/.env` so it can't be committed next to the package.
 
 If Docker isn't installed or running, skip this and say so in the hand-off, so the user
 knows the package was checked but never started.

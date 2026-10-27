@@ -423,13 +423,31 @@ python3 scripts/validate_api.py examples/web-app
 
 A freshly-woken API instance can return HTTP 502 for a few seconds on a cold start;
 `validate_api.py` retries transient 5xx/transport errors automatically, so a blip does
-not read as a validation failure. If you call the endpoint by hand and get a 502, wait
-~30s and retry.
+not read as a validation failure. If it stays rate limited (HTTP 429) it exits 4: wait a
+minute and re-run without changing the package. If you call the endpoint by hand and get a
+502, wait ~30s and retry.
 
 **Preview the generated `.env`.** `POST /api/apps/preview-env` with the same
 `configOptionsYaml` plus a `values` object of operator answers returns the `.env` that
 those answers would produce — useful for confirming a field (or a `select` `set:`)
-actually writes the key you expect.
+actually writes the key you expect. `validate_api.py --preview-env <package-dir> KEY=VALUE ...`
+wraps it and writes `<package-dir>/.env`; use placeholder values only.
 
 The authoritative validators also run again at submit/install (backend + Pi Desktop). The
 long-term path remains shared conformance fixtures so all validators stay in sync.
+
+## Install checklist
+
+Run this after the validator says OK. Check each item in the files you wrote and fix any
+miss. Several of these pass the validator and still leave a blank tab in Pi Desktop.
+
+| Check | Why it matters | Fix |
+| --- | --- | --- |
+| Exactly one service has `pi.ui.primary: "true"` | Pi Desktop embeds only that service; without it the tab is blank. | Add the label to the UI service. |
+| That service publishes exactly one port as `"127.0.0.1:HOST:CONTAINER"` | `"HOST:CONTAINER"` or `"0.0.0.0:..."` exposes the app to the whole network; `expose:` or `"CONTAINER"` alone gives Pi Desktop nothing to open. | Use the loopback form with a distinctive host port. |
+| `CONTAINER` is the port the image actually serves on | A wrong container port publishes fine and serves nothing. | Confirm from the image docs or the running container. |
+| `HOST` is not a browser-blocked port | Chromium refuses a fixed list of ports (e.g. 6000, 6665–6669, 6697, 10080, and many below 1024), so the embed fails with `ERR_UNSAFE_PORT`. | Use a distinctive port between 11000 and 60000, like `18080`. |
+| No image uses `:latest` or omits the tag | A moving tag changes the app under every operator without a new package. | Pin the version tag the image publishes. |
+| No `container_name:` | It collides on reinstall and on a second install. | Remove it. |
+| The UI service has a `healthcheck:` (recommended) | Without one, Pi Desktop can open the tab before the app is ready. Not required yet. | Add a cheap check against the UI port if the image has `curl` or `wget`. |
+| Every field takes effect | The form only writes values to `.env`; a name the image never reads is a dead control. | Make sure each field is an env var the image reads, or is translated into the app's config at startup. For a `select`, every option must be one the build can honor (contract: "Every option must actually take effect"). |

@@ -40,26 +40,26 @@ class ValidatorTests(unittest.TestCase):
 
     def test_read_requires_config_file(self):
         with tempfile.TemporaryDirectory() as directory:
-            Path(directory, "docker-compose.yml").write_text("services: {}\\n", encoding="utf-8")
+            Path(directory, "docker-compose.yml").write_text("services: {}\n", encoding="utf-8")
             with self.assertRaises(FileNotFoundError):
                 validator._read(directory)
 
     def test_read_returns_both_files(self):
         with tempfile.TemporaryDirectory() as directory:
-            Path(directory, "docker-compose.yml").write_text("services: {}\\n", encoding="utf-8")
-            Path(directory, "config_options.yml").write_text("fields: []\\n", encoding="utf-8")
+            Path(directory, "docker-compose.yml").write_text("services: {}\n", encoding="utf-8")
+            Path(directory, "config_options.yml").write_text("fields: []\n", encoding="utf-8")
             self.assertEqual(
                 validator._read(directory),
-                ("services: {}\\n", "fields: []\\n"),
+                ("services: {}\n", "fields: []\n"),
             )
 
     def test_validate_posts_both_package_files(self):
         with tempfile.TemporaryDirectory() as directory:
-            Path(directory, "docker-compose.yml").write_text("services: {}\\n", encoding="utf-8")
-            Path(directory, "config_options.yml").write_text("fields: []\\n", encoding="utf-8")
+            Path(directory, "docker-compose.yml").write_text("services: {}\n", encoding="utf-8")
+            Path(directory, "config_options.yml").write_text("fields: []\n", encoding="utf-8")
             expected = {
-                "composeYaml": "services: {}\\n",
-                "configOptionsYaml": "fields: []\\n",
+                "composeYaml": "services: {}\n",
+                "configOptionsYaml": "fields: []\n",
             }
             with mock.patch.object(validator, "_post", return_value={"ok": True}) as post:
                 self.assertEqual(validator.validate(directory), {"ok": True})
@@ -97,11 +97,11 @@ class ValidatorTests(unittest.TestCase):
 
     def test_preview_env_writes_api_generated_environment(self):
         with tempfile.TemporaryDirectory() as directory:
-            Path(directory, "docker-compose.yml").write_text("services: {}\\n", encoding="utf-8")
-            Path(directory, "config_options.yml").write_text("fields: []\\n", encoding="utf-8")
-            with mock.patch.object(validator, "_post", return_value={"ok": True, "env": "TOKEN=dummy\\n"}):
+            Path(directory, "docker-compose.yml").write_text("services: {}\n", encoding="utf-8")
+            Path(directory, "config_options.yml").write_text("fields: []\n", encoding="utf-8")
+            with mock.patch.object(validator, "_post", return_value={"ok": True, "env": "TOKEN=dummy\n"}):
                 self.assertEqual(validator.preview_env([directory, "TOKEN=dummy"]), 0)
-            self.assertEqual(Path(directory, ".env").read_text(encoding="utf-8"), "TOKEN=dummy\\n")
+            self.assertEqual(Path(directory, ".env").read_text(encoding="utf-8"), "TOKEN=dummy\n")
 
     def test_preview_env_rejects_malformed_value(self):
         with tempfile.TemporaryDirectory() as directory:

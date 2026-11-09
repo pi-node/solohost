@@ -6,7 +6,6 @@ All network interactions are mocked; these tests are safe to run offline.
 import importlib.util
 import io
 import json
-import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,9 +19,8 @@ SPEC.loader.exec_module(validator)
 
 
 class Response:
-    def __init__(self, payload, status=200):
+    def __init__(self, payload):
         self.payload = payload
-        self.status = status
 
     def __enter__(self):
         return self

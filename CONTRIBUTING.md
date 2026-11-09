@@ -26,6 +26,20 @@ With no argument it checks every example at once.
 Contract edits reach installed skills immediately — the skill fetches the contract from
 `main` at runtime — so they never need a version bump.
 
+## Running regression tests
+
+The offline regression suite uses only Python's standard library and does not contact
+SoloHost or require Docker:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+GitHub Actions runs this suite on pushes to `main` and contribution branches, and on
+pull requests. The tests cover package-file loading, hosted API response handling,
+transient server-error retries, and preview-`.env` generation. They complement — but do
+not replace — the authoritative hosted validator.
+
 Bump the version once per pull request that changes `SKILL.md`, the examples, or the
 scripts, as part of that PR rather than in each commit. Set the same version in
 `.claude-plugin/plugin.json` and in both places in `.claude-plugin/marketplace.json`
